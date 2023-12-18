@@ -1,3 +1,4 @@
+import { ColorModeScript } from '@chakra-ui/react'
 import type { Metadata } from 'next'
 import { fonts } from './fonts'
 import { Providers } from './providers'
@@ -15,6 +16,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={fonts.rubik.variable}>
+        <ColorModeScript initialColorMode={"dark"} />
         <Providers>{children}</Providers>
       </body>
     </html>
