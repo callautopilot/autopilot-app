@@ -20,7 +20,7 @@ export default function Home() {
   const toast = useToast();
 
   // Fake placholder text for dev
-  const fakeRecordedText = `This is an example of recorded text being from the microphone`;
+  const fakeRecordedText = `This is an example of text being recorded from the microphone`;
 
   useEffect(() => {
     let timer: number | NodeJS.Timeout;
