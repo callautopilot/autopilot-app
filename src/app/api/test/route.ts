@@ -1,3 +1,5 @@
 export function GET(_req: Request) {
-  return Response.json({ text: process.env.TEST });
+  const test = process.env.TEST;
+  console.log("test: ", test);
+  return Response.json({ text: test });
 }
