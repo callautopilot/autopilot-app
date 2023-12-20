@@ -28,3 +28,5 @@ jobs:
 
       - name: Build
         run: yarn build
+        env:
+          OPENAI_API_KEY: ""
