@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import { toFile } from "openai/uploads.mjs";
+import { toFile } from "openai/uploads";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY!,
