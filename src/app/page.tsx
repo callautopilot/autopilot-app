@@ -12,12 +12,13 @@ import {
   Heading,
 } from "@chakra-ui/react";
 import { FiMic, FiMicOff } from "react-icons/fi";
-import useWhisperV1 from "@/hooks/useWhisperV1";
 
 export default function Home() {
-  const { record, stop, texts, isRecording, permissionGranted } = useWhisperV1({
-    slice_ms: 3000,
-  });
+  // To do: use the useMicMp3 hook here
+  const isRecording = false;
+  const texts = ["Hello", "World"];
+  const record = () => {};
+  const stop = () => {};
 
   const [hovered, setHovered] = useState(false);
   const toast = useToast();
