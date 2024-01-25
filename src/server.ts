@@ -22,9 +22,7 @@ nextApp.prepare().then(() => {
   const app: ExtendedApplication = express();
   const httpServer = createServer(app);
   const io = new Server(httpServer);
-
   app.io = io;
-
   io.on("connection", (socket) => handleMessages(io, socket));
 
   app.all("*", (req: Request, res: Response) => {

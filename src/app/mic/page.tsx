@@ -1,12 +1,16 @@
 "use client";
-import { mic } from "./mic";
 import { useEffect, useState } from "react";
 import { io, Socket } from "socket.io-client";
+import useMicMp3 from "./useMicMp3";
 
 const Index = () => {
-  const [isRecording, setIsRecording] = useState(false);
   const [socket, setSocket] = useState<Socket | null>(null);
 
+  const mp3DataCallback = (data: Int16Array) => {
+    socket?.emit("mp3", data);
+  };
+
+  const { isRecording, setIsRecording } = useMicMp3({ mp3DataCallback });
   useEffect(() => {
     const socket: Socket = io("http://localhost:3000");
     setSocket(socket);
@@ -16,28 +20,16 @@ const Index = () => {
     };
   }, []);
 
-  const audioDataCallback = (
-    encodedData: Int16Array,
-    originalData: Int16Array
-  ) => {
-    console.log(
-      "Encoded " +
-        encodedData.byteLength +
-        " bytes. Original: " +
-        originalData.byteLength
-    );
-    socket?.emit("mp3", encodedData);
-  };
-
-  const sendMessage = () => {
-    mic(audioDataCallback);
-    console.log("send message");
-  };
+  useEffect(() => {
+    socket?.on("message", (data) => {
+      console.log("message", data);
+    });
+  }, [socket]);
 
   return (
-    <div>
-      <button onClick={sendMessage}>Start</button>
-    </div>
+    <button onClick={() => setIsRecording(!isRecording)}>
+      {isRecording ? "Stop Recording" : "Start Recording"}
+    </button>
   );
 };
 
