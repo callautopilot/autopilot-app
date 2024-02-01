@@ -1,4 +1,5 @@
 import { toFile } from "openai/uploads";
+import { createClient, LiveTranscriptionEvents } from '@deepgram/sdk';
 import { Server, Socket } from "socket.io";
 import OpenAI from "openai";
 import { writeFileSync } from "fs";
@@ -6,6 +7,10 @@ import { writeFileSync } from "fs";
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY!,
 });
+
+const deepgramClient = createClient(
+  process.env.DEEPGRAM_API_KEY!
+);
 
 let buffers: Buffer[] = [];
 const bufferMaxLength = 200;
@@ -46,10 +51,26 @@ const handleMessagesMp3 = async (audio: ArrayBuffer, io: Server) => {
 export function handleMessages(io: Server, socket: Socket) {
   console.log("A user connected");
 
-  socket.on("mp3", (audio) => handleMessagesMp3(audio, io));
+  const connection = deepgramClient.listen.live({
+    punctuate: true,
+    smart_format: true,
+    model: "nova-2",
+    language: "fr",
+  });
+
+  connection.on(LiveTranscriptionEvents.Transcript, (data) => {
+    const transcript = data.channel.alternatives[0].transcript;
+    console.log("Transcript: ", transcript);
+    socket.emit("message", transcript);
+  });
+
+  socket.on("mp3", (audio) => {
+    const buffer = Buffer.from(audio);
+    connection.send(buffer);
+  });
 
   socket.on("disconnect", () => {
     console.log("A user disconnected");
-    socket.off("message", handleMessagesMp3);
+    connection.finish();
   });
 }
