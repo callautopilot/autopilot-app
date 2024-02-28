@@ -1,13 +1,10 @@
-import { toFile } from "openai/uploads";
 import { createClient, LiveTranscriptionEvents } from "@deepgram/sdk";
 import { Server, Socket } from "socket.io";
 import OpenAI from "openai";
-import { writeFileSync } from "fs";
 import {
   ChatCompletionChunk,
   ChatCompletionSystemMessageParam,
 } from "openai/resources";
-import { OpenAIStream } from "ai";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY!,
