@@ -29,7 +29,7 @@ export default function Home() {
 
   const { isRecording, setIsRecording } = useMicMp3({ mp3DataCallback });
   useEffect(() => {
-    const socket: Socket = io("http://localhost:3000");
+    const socket: Socket = io(window.location.origin);
     setSocket(socket);
 
     return () => {
