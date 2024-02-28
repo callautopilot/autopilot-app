@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Box,
   Button,
@@ -12,13 +12,38 @@ import {
   Heading,
 } from "@chakra-ui/react";
 import { FiMic, FiMicOff } from "react-icons/fi";
+import useMicMp3 from "./useMicMp3";
+import { io, Socket } from "socket.io-client";
 
 export default function Home() {
-  // To do: use the useMicMp3 hook here
-  const isRecording = false;
-  const texts = ["Hello", "World"];
-  const record = () => {};
-  const stop = () => {};
+  const [texts, setTexts] = useState<string[]>([]);
+
+  const [socket, setSocket] = useState<Socket | null>(null);
+
+  const mp3DataCallback = useCallback(
+    (data: Int16Array) => {
+      socket?.emit("mp3", data);
+    },
+    [socket]
+  );
+
+  const { isRecording, setIsRecording } = useMicMp3({ mp3DataCallback });
+  useEffect(() => {
+    const socket: Socket = io("http://localhost:3000");
+    setSocket(socket);
+
+    return () => {
+      socket.disconnect();
+    };
+  }, []);
+
+  useEffect(() => {
+    socket?.on("message", (data: string) => {
+      console.log("message", JSON.stringify(data));
+      setTexts((texts) => [...texts, data]);
+      console.log("message", data);
+    });
+  }, [socket]);
 
   const [hovered, setHovered] = useState(false);
   const toast = useToast();
@@ -42,7 +67,7 @@ export default function Home() {
         color: "blue.500",
       },
     });
-    record();
+    setIsRecording(true);
   };
 
   const handleStop = () => {
@@ -58,7 +83,7 @@ export default function Home() {
         color: "green.500",
       },
     });
-    stop();
+    setIsRecording(false);
   };
 
   return (
