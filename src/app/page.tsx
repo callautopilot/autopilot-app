@@ -85,6 +85,16 @@ export default function Home() {
     });
     setIsRecording(false);
   };
+  const callGpt = async () => {
+    console.log("call gpt");
+    socket?.emit("gpt");
+  };
+
+  useEffect(() => {
+    socket?.on("response", (data: string) => {
+      console.log("Response", data);
+    });
+  }, [socket]);
 
   return (
     <>
@@ -108,6 +118,11 @@ export default function Home() {
           </Stack>
         </Container>
       </Box>
+      <Container maxW="3xl">
+        <VStack py={{ base: "8", md: "12" }} align="center" justify="center">
+          <Button onClick={callGpt}>GPT</Button>
+        </VStack>
+      </Container>
 
       <Container maxW="3xl">
         <VStack py={{ base: "8", md: "12" }} align="center" justify="center">

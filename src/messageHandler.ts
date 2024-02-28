@@ -3,10 +3,52 @@ import { createClient, LiveTranscriptionEvents } from "@deepgram/sdk";
 import { Server, Socket } from "socket.io";
 import OpenAI from "openai";
 import { writeFileSync } from "fs";
+import {
+  ChatCompletionChunk,
+  ChatCompletionSystemMessageParam,
+} from "openai/resources";
+import { OpenAIStream } from "ai";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY!,
 });
+
+const systemMessage: ChatCompletionSystemMessageParam = {
+  role: "system",
+  content: `
+  You are a vocal assistant that responds to user questions.
+  User speech will be converted to text and sent to you as a messages.
+  Sometimes the sentences will be incomplete respond nothing in this case.
+  Start responding to the user when you detect a question.
+    `,
+};
+
+const gpt = async (socket: Socket) => {
+  const response = await openai.chat.completions.create({
+    model: "gpt-3.5-turbo",
+    temperature: 0.1,
+    messages: [
+      systemMessage,
+      { role: "user", content: "What is the capital of France?" },
+    ],
+    stream: true,
+  });
+  const reader = response.toReadableStream().getReader();
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) {
+      break;
+    }
+    const data = <ChatCompletionChunk>(
+      JSON.parse(new TextDecoder("utf-8").decode(value))
+    );
+    const message = data.choices[0]?.delta.content;
+    console.log("Response GPT", message);
+    socket.emit("response", message);
+  }
+  console.log("GPT done");
+};
 
 const deepgramClient = createClient(process.env.DEEPGRAM_API_KEY!);
 
@@ -70,6 +112,11 @@ export function handleMessages(io: Server, socket: Socket) {
       console.log("deepgram: send audio");
       connection.send(buffer);
     }
+  });
+
+  socket.on("gpt", async () => {
+    console.log("gpt request received");
+    await gpt(socket);
   });
 
   socket.on("disconnect", () => {
