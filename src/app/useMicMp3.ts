@@ -5,7 +5,6 @@ type Props = { mp3DataCallback: any };
 
 const useMicMp3 = ({ mp3DataCallback }: Props) => {
   const [isRecording, setIsRecording] = useState(false);
-
   const [audioContext, setAudioContext] = useState<AudioContext | null>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
 
@@ -26,12 +25,16 @@ const useMicMp3 = ({ mp3DataCallback }: Props) => {
           console.log("mic started");
         });
     } else if (!isRecording && (audioContext || stream)) {
-      audioContext?.close();
+      if (audioContext && audioContext.state !== "closed") {
+        audioContext.close();
+      }
       stream?.getTracks().forEach((track) => track.stop());
     }
 
     return () => {
-      audioContext?.close();
+      if (audioContext && audioContext.state !== "closed") {
+        audioContext.close();
+      }
       stream?.getTracks().forEach((track) => track.stop());
     };
   }, [isRecording, mp3DataCallback, audioContext, stream]);
