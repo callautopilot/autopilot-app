@@ -17,6 +17,7 @@ import { io, Socket } from "socket.io-client";
 
 export default function Home() {
   const [texts, setTexts] = useState<string[]>([]);
+  const [response, setResponse] = useState<string[]>([]);
 
   const [socket, setSocket] = useState<Socket | null>(null);
 
@@ -28,6 +29,7 @@ export default function Home() {
   );
 
   const { isRecording, setIsRecording } = useMicMp3({ mp3DataCallback });
+  
   useEffect(() => {
     const socket: Socket = io(window.location.origin);
     setSocket(socket);
@@ -42,6 +44,13 @@ export default function Home() {
       console.log("message", JSON.stringify(data));
       setTexts((texts) => [...texts, data]);
       console.log("message", data);
+    });
+
+    socket?.on("response", (data: string) => {
+      if (data) {
+        setResponse((response) => [...response, data.trim()]);
+        console.log("message", data.trim());
+      }
     });
   }, [socket]);
 
@@ -68,6 +77,7 @@ export default function Home() {
       },
     });
     setIsRecording(true);
+    socket?.emit("recordingStateChange", { isRecording: true });
   };
 
   const handleStop = () => {
@@ -84,6 +94,7 @@ export default function Home() {
       },
     });
     setIsRecording(false);
+    socket?.emit("recordingStateChange", { isRecording: false });
   };
 
   return (
@@ -146,8 +157,12 @@ export default function Home() {
                 ))}
               </Box>
               <Box textAlign="center">
-                <Text mb={2}>Potential Response:</Text>
-                <Text>(...)</Text>
+                <Text mb={2}>GPT Response:</Text>
+                <Text>
+                  {response.map((text) => (
+                    <>{text} </>
+                  ))}
+                </Text>
               </Box>
             </VStack>
           </Box>
