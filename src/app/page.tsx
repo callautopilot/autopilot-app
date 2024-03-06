@@ -17,6 +17,7 @@ import { io, Socket } from "socket.io-client";
 
 export default function Home() {
   const [texts, setTexts] = useState<string[]>([]);
+  const [response, setResponse] = useState<string[]>([]);
 
   const [socket, setSocket] = useState<Socket | null>(null);
 
@@ -43,6 +44,13 @@ export default function Home() {
       console.log("message", JSON.stringify(data));
       setTexts((texts) => [...texts, data]);
       console.log("message", data);
+    });
+
+    socket?.on("response", (data: string) => {
+      if (data) {
+        setResponse((response) => [...response, data.trim()]);
+        console.log("message", data.trim());
+      }
     });
   }, [socket]);
 
@@ -88,16 +96,6 @@ export default function Home() {
     setIsRecording(false);
     socket?.emit("recordingStateChange", { isRecording: false });
   };
-  const callGpt = async () => {
-    console.log("call gpt");
-    socket?.emit("gpt");
-  };
-
-  useEffect(() => {
-    socket?.on("response", (data: string) => {
-      console.log("Response", data);
-    });
-  }, [socket]);
 
   return (
     <>
@@ -121,11 +119,6 @@ export default function Home() {
           </Stack>
         </Container>
       </Box>
-      <Container maxW="3xl">
-        <VStack py={{ base: "8", md: "12" }} align="center" justify="center">
-          <Button onClick={callGpt}>GPT</Button>
-        </VStack>
-      </Container>
 
       <Container maxW="3xl">
         <VStack py={{ base: "8", md: "12" }} align="center" justify="center">
@@ -164,8 +157,12 @@ export default function Home() {
                 ))}
               </Box>
               <Box textAlign="center">
-                <Text mb={2}>Potential Response:</Text>
-                <Text>(...)</Text>
+                <Text mb={2}>GPT Response:</Text>
+                <Text>
+                  {response.map((text) => (
+                    <>{text} </>
+                  ))}
+                </Text>
               </Box>
             </VStack>
           </Box>

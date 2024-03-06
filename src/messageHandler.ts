@@ -3,6 +3,7 @@ import { Server, Socket } from "socket.io";
 import OpenAI from "openai";
 import {
   ChatCompletionChunk,
+  ChatCompletionMessageParam,
   ChatCompletionSystemMessageParam,
 } from "openai/resources";
 
@@ -16,7 +17,21 @@ const deepgramClient = createClient(process.env.DEEPGRAM_API_KEY!);
 interface ExtendedSocket extends Socket {
   deepgramConnection?: ReturnType<typeof deepgramClient.listen.live>;
   deepgramReady?: boolean;
+  conversationHistory?: { role: string; content: string }[];
+  gptReady?: boolean;
 }
+
+const systemMessage: ChatCompletionSystemMessageParam = {
+  role: "system",
+  content: `
+  You are a helpful vocal assistant that responds to user questions.
+  Never say "How can I help you today" or anything alike, this is useless in this case.
+  User speech will be converted to text and sent to you as a messages.
+  Sometimes the sentences will be incomplete respond NOTHING in this case, en empty text response.
+  Start responding to the user when you detect a question.
+  `,
+};
+
 
 // In-memory recording state storage
 const recordingStates: Record<string, boolean> = {};
@@ -27,12 +42,58 @@ function startDeepgramConnection(socket: ExtendedSocket) {
     punctuate: true,
     smart_format: true,
     model: "nova-2",
-    language: "fr",
+    language: "en",
   });
 
   // Store the connection in the socket for later reference
   socket.deepgramConnection = connection;
   socket.deepgramReady = false;
+  socket.conversationHistory = [systemMessage];
+  socket.gptReady = true;
+  let transcriptBuffer = "";
+
+  const sendToGpt = async () => {
+    if (socket.gptReady) {
+      socket.gptReady = false;
+
+      // Initialize conversationHistory if it's undefined
+      if (!socket.conversationHistory) {
+        socket.conversationHistory = [systemMessage]; // Initialize with the system message
+      }
+
+      socket.conversationHistory.push({ role: "user", content: transcriptBuffer });
+      transcriptBuffer = ""; // Clear the buffer
+
+      const response = await openai.chat.completions.create({
+        model: "gpt-3.5-turbo",
+        temperature: 0.1,
+        messages: socket.conversationHistory as ChatCompletionMessageParam[],
+        stream: true,
+      });
+    
+      const reader = response.toReadableStream().getReader();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          socket.gptReady = true; // Set GPT back to ready AFTER processing is complete
+          break;
+        }
+        const data = <ChatCompletionChunk>(JSON.parse(new TextDecoder("utf-8").decode(value)));
+        const message = data.choices[0]?.delta.content;
+        console.log("response from GPT:", message);
+        socket.emit("response", message);
+        // socket.conversationHistory.push({ role: "assistant", content: message });
+      }
+    }
+  };
+
+  const handleNewTranscript = (transcript: string) => {
+    transcriptBuffer += transcript;
+    // Attempt to send to GPT if ready and buffer has enough content
+    if (socket.gptReady && transcriptBuffer.length >= 30) {
+      sendToGpt();
+    }
+  };
 
   // Keep-alive logic specific to this connection
   let keepAlive = setInterval(() => {
@@ -49,11 +110,10 @@ function startDeepgramConnection(socket: ExtendedSocket) {
 
   // Handle incoming transcripts
   connection.on(LiveTranscriptionEvents.Transcript, (data) => {
-    if (socket.deepgramReady) { // Check if the connection is ready
-      const transcript = data.channel.alternatives[0].transcript;
-      console.log("Transcript: ", transcript);
-      socket.emit('message', transcript);
-    }
+    const transcript = data.channel.alternatives[0].transcript;
+    handleNewTranscript(transcript);
+    console.log("Transcript: ", transcript);
+    socket.emit('message', transcript);
   });
 
   connection.on('close', () => {
@@ -75,43 +135,6 @@ function stopDeepgramConnection(socket: ExtendedSocket) {
     console.log('Deepgram connection closed for socket', socket.id);
   }
 }
-
-const systemMessage: ChatCompletionSystemMessageParam = {
-  role: "system",
-  content: `
-  You are a vocal assistant that responds to user questions.
-  User speech will be converted to text and sent to you as a messages.
-  Sometimes the sentences will be incomplete respond nothing in this case.
-  Start responding to the user when you detect a question.
-    `,
-};
-
-const gpt = async (socket: Socket) => {
-  const response = await openai.chat.completions.create({
-    model: "gpt-3.5-turbo",
-    temperature: 0.1,
-    messages: [
-      systemMessage,
-      { role: "user", content: "What is the capital of France?" },
-    ],
-    stream: true,
-  });
-  const reader = response.toReadableStream().getReader();
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) {
-      break;
-    }
-    const data = <ChatCompletionChunk>(
-      JSON.parse(new TextDecoder("utf-8").decode(value))
-    );
-    const message = data.choices[0]?.delta.content;
-    console.log("Response GPT", message);
-    socket.emit("response", message);
-  }
-  console.log("GPT done");
-};
 
 export function handleMessages(io: Server, socket: ExtendedSocket) {
   console.log("A user connected", socket.id);
@@ -139,12 +162,7 @@ export function handleMessages(io: Server, socket: ExtendedSocket) {
       socket.deepgramConnection.send(buffer);
     }
   });
-
-  socket.on("gpt", async () => {
-    console.log("gpt request received");
-    await gpt(socket);
-  });
-
+  
   // Adjust the socket.on("disconnect") listener to handle cleanup properly
   socket.on("disconnect", () => {
     stopDeepgramConnection(socket as ExtendedSocket);
