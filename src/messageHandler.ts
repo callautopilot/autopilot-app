@@ -10,6 +10,9 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY!,
 });
 
+// In-memory recording state storage
+const recordingStates: Record<string, boolean> = {};
+
 const systemMessage: ChatCompletionSystemMessageParam = {
   role: "system",
   content: `
@@ -48,10 +51,6 @@ const gpt = async (socket: Socket) => {
 };
 
 const deepgramClient = createClient(process.env.DEEPGRAM_API_KEY!);
-
-let buffers: Buffer[] = [];
-const bufferMaxLength = 200;
-let mp3FilesCount = 0;
 
 export function handleMessages(io: Server, socket: Socket) {
   console.log("A user connected");
@@ -102,11 +101,17 @@ export function handleMessages(io: Server, socket: Socket) {
     });
   });
 
+  socket.on("recordingStateChange", (data: { isRecording: boolean }) => {
+    console.log("Recording state changed for socket ID", socket.id, ":", data.isRecording);
+    recordingStates[socket.id] = data.isRecording;
+  });
+
   socket.on("mp3", (audio) => {
-    console.log("mp3 received");
+    // console.log("mp3 received");
     const buffer = Buffer.from(audio);
+    //console.log(buffer);
     if (isDeepgramReady) {
-      console.log("deepgram: send audio");
+      // console.log("deepgram: send audio");
       connection.send(buffer);
     }
   });
@@ -117,7 +122,8 @@ export function handleMessages(io: Server, socket: Socket) {
   });
 
   socket.on("disconnect", () => {
-    console.log("A user disconnected");
+    console.log("A user disconnected. Cleaning up state for", socket.id);
+    delete recordingStates[socket.id];
     clearInterval(keepAlive);
     connection.finish();
   });

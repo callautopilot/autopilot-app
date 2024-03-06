@@ -28,6 +28,7 @@ export default function Home() {
   );
 
   const { isRecording, setIsRecording } = useMicMp3({ mp3DataCallback });
+  
   useEffect(() => {
     const socket: Socket = io(window.location.origin);
     setSocket(socket);
@@ -68,6 +69,7 @@ export default function Home() {
       },
     });
     setIsRecording(true);
+    socket?.emit("recordingStateChange", { isRecording: true });
   };
 
   const handleStop = () => {
@@ -84,6 +86,7 @@ export default function Home() {
       },
     });
     setIsRecording(false);
+    socket?.emit("recordingStateChange", { isRecording: false });
   };
   const callGpt = async () => {
     console.log("call gpt");
