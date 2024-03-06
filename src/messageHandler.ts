@@ -6,12 +6,75 @@ import {
   ChatCompletionSystemMessageParam,
 } from "openai/resources";
 
+// External APIs
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY!,
 });
 
+const deepgramClient = createClient(process.env.DEEPGRAM_API_KEY!);
+// Extend the Socket type to include deepgramConnection
+interface ExtendedSocket extends Socket {
+  deepgramConnection?: ReturnType<typeof deepgramClient.listen.live>;
+  deepgramReady?: boolean;
+}
+
 // In-memory recording state storage
 const recordingStates: Record<string, boolean> = {};
+
+// Util function to start the Deepgram connection
+function startDeepgramConnection(socket: ExtendedSocket) {
+  const connection = deepgramClient.listen.live({
+    punctuate: true,
+    smart_format: true,
+    model: "nova-2",
+    language: "fr",
+  });
+
+  // Store the connection in the socket for later reference
+  socket.deepgramConnection = connection;
+  socket.deepgramReady = false;
+
+  // Keep-alive logic specific to this connection
+  let keepAlive = setInterval(() => {
+    console.log("deepgram: keepalive for socket", socket.id);
+    if (socket.deepgramConnection) {
+      socket.deepgramConnection.keepAlive();
+    }
+  }, 10 * 1000);
+
+  connection.on('open', () => {
+    console.log('Deepgram connection opened for', socket.id);
+    socket.deepgramReady = true;
+  });
+
+  // Handle incoming transcripts
+  connection.on(LiveTranscriptionEvents.Transcript, (data) => {
+    if (socket.deepgramReady) { // Check if the connection is ready
+      const transcript = data.channel.alternatives[0].transcript;
+      console.log("Transcript: ", transcript);
+      socket.emit('message', transcript);
+    }
+  });
+
+  connection.on('close', () => {
+    clearInterval(keepAlive);
+    socket.deepgramReady = false;
+    console.log('Deepgram connection closed for', socket.id);
+  });
+
+  connection.on('error', error => {
+    console.error('Deepgram error for', socket.id, ':', error);
+  });
+}
+
+// Util function to stop the Deepgram connection
+function stopDeepgramConnection(socket: ExtendedSocket) {
+  if (socket.deepgramConnection) {
+    socket.deepgramConnection.finish();
+    socket.deepgramConnection = undefined;
+    console.log('Deepgram connection closed for socket', socket.id);
+  }
+}
 
 const systemMessage: ChatCompletionSystemMessageParam = {
   role: "system",
@@ -50,55 +113,19 @@ const gpt = async (socket: Socket) => {
   console.log("GPT done");
 };
 
-const deepgramClient = createClient(process.env.DEEPGRAM_API_KEY!);
+export function handleMessages(io: Server, socket: ExtendedSocket) {
+  console.log("A user connected", socket.id);
 
-export function handleMessages(io: Server, socket: Socket) {
-  console.log("A user connected");
-
-  const connection = deepgramClient.listen.live({
-    punctuate: true,
-    smart_format: true,
-    model: "nova-2",
-    language: "fr",
-  });
-  let isDeepgramReady = false;
-  let keepAlive: NodeJS.Timeout | undefined = undefined;
-  if (keepAlive) clearInterval(keepAlive);
-  keepAlive = setInterval(() => {
-    console.log("deepgram: keepalive");
-    connection.keepAlive();
-  }, 10 * 1000);
-
-  connection.on(LiveTranscriptionEvents.Open, async () => {
-    isDeepgramReady = true;
-    connection.on(LiveTranscriptionEvents.Transcript, (data) => {
-      const transcript = data.channel.alternatives[0].transcript;
-      console.log("Transcript: ", transcript);
-      socket.emit("message", transcript);
-    });
-
-    connection.on(LiveTranscriptionEvents.Close, async () => {
-      console.log("deepgram: disconnected");
-      isDeepgramReady = false;
-      clearInterval(keepAlive);
-      connection.finish();
-    });
-
-    connection.on(LiveTranscriptionEvents.Error, async (error) => {
-      console.log("deepgram: error received");
-      console.error(error);
-    });
-
-    connection.on(LiveTranscriptionEvents.Warning, async (warning) => {
-      console.log("deepgram: warning received");
-      console.warn(warning);
-    });
-
-    connection.on(LiveTranscriptionEvents.Metadata, (data) => {
-      console.log("deepgram: packet received");
-      console.log("deepgram: metadata received");
-      console.log("ws: metadata sent to client");
-    });
+  socket.on("recordingStateChange", (data: { isRecording: boolean }) => {
+    console.log("Recording state changed for socket ID", socket.id, ":", data.isRecording);
+    recordingStates[socket.id] = data.isRecording;
+    
+    // Start or stop the Deepgram connection based on the isRecording state
+    if (data.isRecording) {
+      startDeepgramConnection(socket);
+    } else {
+      stopDeepgramConnection(socket);
+    }
   });
 
   socket.on("recordingStateChange", (data: { isRecording: boolean }) => {
@@ -107,12 +134,9 @@ export function handleMessages(io: Server, socket: Socket) {
   });
 
   socket.on("mp3", (audio) => {
-    // console.log("mp3 received");
-    const buffer = Buffer.from(audio);
-    //console.log(buffer);
-    if (isDeepgramReady) {
-      // console.log("deepgram: send audio");
-      connection.send(buffer);
+    if (socket.deepgramConnection && socket.deepgramReady) {
+      const buffer = Buffer.from(audio);
+      socket.deepgramConnection.send(buffer);
     }
   });
 
@@ -121,10 +145,12 @@ export function handleMessages(io: Server, socket: Socket) {
     await gpt(socket);
   });
 
+  // Adjust the socket.on("disconnect") listener to handle cleanup properly
   socket.on("disconnect", () => {
-    console.log("A user disconnected. Cleaning up state for", socket.id);
+    stopDeepgramConnection(socket as ExtendedSocket);
+    socket.deepgramReady = false;
     delete recordingStates[socket.id];
-    clearInterval(keepAlive);
-    connection.finish();
+    console.log("A user disconnected. Cleaning up state for socket", socket.id);
   });
+
 }
