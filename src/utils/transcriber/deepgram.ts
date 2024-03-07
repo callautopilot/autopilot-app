@@ -18,10 +18,8 @@ export const startDeepgramConnection = (socket: ExtendedSocket, handleTranscript
   let keepAliveInterval: NodeJS.Timeout;
 
   connection.on('open', () => {
-    console.log('Deepgram connection opened for socket ID', socket.id);
     socket.deepgramReady = true;
     keepAliveInterval = setInterval(() => {
-      console.log("Sending keepalive for socket", socket.id);
       if (socket.deepgramConnection) {
         socket.deepgramConnection.keepAlive();
       }
@@ -57,7 +55,7 @@ export const startDeepgramConnection = (socket: ExtendedSocket, handleTranscript
 };
 
 export const stopDeepgramConnection = (socket: ExtendedSocket): void => {
-  if (socket.deepgramConnection) {
+  if (socket.deepgramConnection && socket.deepgramReady) {
     socket.deepgramConnection.finish();
     console.log('Deepgram connection closed for socket ID', socket.id);
     socket.deepgramReady = false;
