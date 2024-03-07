@@ -4,8 +4,8 @@ import { fonts } from './fonts'
 import { Providers } from './providers'
 
 export const metadata: Metadata = {
-  title: 'Autopilot',
-  description: 'Autopilot',
+  title: 'Superclone AI',
+  description: 'Superclone AI',
 }
 
 export default function RootLayout({

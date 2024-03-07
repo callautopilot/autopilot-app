@@ -17,13 +17,13 @@ import { io, Socket } from "socket.io-client";
 
 export default function Home() {
   const [texts, setTexts] = useState<string[]>([]);
-  const [response, setResponse] = useState<string[]>([]);
+  const [agentResponse, setAgentResponse] = useState<string[]>([]);
 
   const [socket, setSocket] = useState<Socket | null>(null);
 
   const mp3DataCallback = useCallback(
     (data: Int16Array) => {
-      socket?.emit("mp3", data);
+      socket?.emit("audio", data);
     },
     [socket]
   );
@@ -46,9 +46,9 @@ export default function Home() {
       console.log("message", data);
     });
 
-    socket?.on("response", (data: string) => {
+    socket?.on("agentResponse", (data: string) => {
       if (data) {
-        setResponse((response) => [...response, data.trim()]);
+        setAgentResponse((agentResponse) => [...agentResponse, data.trim()]);
         console.log("message", data.trim());
       }
     });
@@ -107,13 +107,13 @@ export default function Home() {
             align="center"
           >
             <Stack spacing={{ base: "4", md: "5" }}>
-              <Heading size={{ base: "sm", md: "md" }}>🤖 Autopilot</Heading>
+              <Heading size={{ base: "sm", md: "md" }}>👥 Superclone AI</Heading>
               <Text
                 fontSize={{ base: "lg", md: "xl" }}
                 color="fg.muted"
                 maxW="3xl"
               >
-                Because why not send someone else to your useless meetings
+                Send your clone to attend your meetings
               </Text>
             </Stack>
           </Stack>
@@ -159,7 +159,7 @@ export default function Home() {
               <Box textAlign="center">
                 <Text mb={2}>GPT Response:</Text>
                 <Text>
-                  {response.map((text) => (
+                  {agentResponse.map((text) => (
                     <>{text} </>
                   ))}
                 </Text>
