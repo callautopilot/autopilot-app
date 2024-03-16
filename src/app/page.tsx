@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Box,
   Button,
@@ -12,27 +12,56 @@ import {
   Heading,
 } from "@chakra-ui/react";
 import { FiMic, FiMicOff } from "react-icons/fi";
-import useMicMp3 from "./useMicMp3";
+import useMicMp3 from "./hooks/useMicMp3";
 import { io, Socket } from "socket.io-client";
+import useAudioPlayer from "./usePlayAudio";
+
+type StateItem = { text: string; answer: string };
+type State = Record<string, StateItem>;
+const storeToState =
+  ({
+    count,
+    field,
+    value,
+  }: {
+    count: string;
+    field: keyof StateItem;
+    value: string;
+  }) =>
+  (state: State): State => {
+    return {
+      ...state,
+      [count]: {
+        ...(state[count] || { answer: "", text: "" }),
+        [field]: (state[count]?.[field] || "") + value,
+      },
+    };
+  };
 
 export default function Home() {
-  const [texts, setTexts] = useState<string[]>([]);
-  const [agentResponse, setAgentResponse] = useState<string[]>([]);
+  type State = Record<string, { text: string; answer: string }>;
 
+  const [state, setState] = useState<State>({});
+  const audioContextRef = useRef<AudioContext | null>(null);
   const [socket, setSocket] = useState<Socket | null>(null);
 
-  const mp3DataCallback = useCallback(
-    (data: Int16Array) => {
+  const onMicData = useCallback(
+    (data: Int8Array) => {
+      console.log("Sending audio data to ws");
       socket?.emit("audio", data);
     },
     [socket]
   );
+  const handleAudioData = useAudioPlayer();
 
-  const { isRecording, setIsRecording } = useMicMp3({ mp3DataCallback });
-  
+  const { isRecording, setIsRecording } = useMicMp3({ onMicData });
+
   useEffect(() => {
     const socket: Socket = io(window.location.origin);
-    setSocket(socket);
+    socket.on("connect", () => {
+      setSocket(socket);
+    });
+    audioContextRef.current = new window.AudioContext();
 
     return () => {
       socket.disconnect();
@@ -40,19 +69,48 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    socket?.on("message", (data: string) => {
-      console.log("message", JSON.stringify(data));
-      setTexts((texts) => [...texts, data]);
-      console.log("message", data);
-    });
+    console.log(
+      "New socket handler",
+      audioContextRef.current?.state,
+      socket?.id
+    );
 
-    socket?.on("agentResponse", (data: string) => {
-      if (data) {
-        setAgentResponse((agentResponse) => [...agentResponse, data.trim()]);
-        console.log("message", data.trim());
+    socket?.on(
+      "message",
+      ({ data, counter }: { data: string; counter: number }) => {
+        setState(
+          storeToState({
+            count: counter.toString(),
+            field: "text",
+            value: data,
+          })
+        );
       }
-    });
-  }, [socket]);
+    );
+
+    socket?.on(
+      "elevenlab",
+      ({ data, counter }: { data: string; counter: number }) => {
+        console.log("elevenlab event", counter);
+        if (audioContextRef.current) {
+          handleAudioData(data, audioContextRef.current);
+        }
+      }
+    );
+
+    socket?.on(
+      "agentResponse",
+      ({ data, counter }: { data: string; counter: number }) => {
+        setState(
+          storeToState({
+            count: counter.toString(),
+            field: "answer",
+            value: data,
+          })
+        );
+      }
+    );
+  }, [socket, handleAudioData]);
 
   const [hovered, setHovered] = useState(false);
   const toast = useToast();
@@ -61,7 +119,7 @@ export default function Home() {
     return isRecording ? hovered ? <FiMicOff /> : <FiMic /> : <FiMic />;
   };
 
-  const handleRecord = () => {
+  const handleRecord = async () => {
     toast({
       title: "Recording started",
       status: "info",
@@ -77,6 +135,14 @@ export default function Home() {
       },
     });
     setIsRecording(true);
+    console.log("Recording started", audioContextRef.current?.state);
+    if (audioContextRef.current?.state === "suspended") {
+      await audioContextRef.current?.resume();
+      console.log("audio context resumed", audioContextRef.current?.state);
+    }
+
+    console.log("Sending recording state change to ws");
+
     socket?.emit("recordingStateChange", { isRecording: true });
   };
 
@@ -94,6 +160,8 @@ export default function Home() {
       },
     });
     setIsRecording(false);
+    console.log("Sending recording state change to ws");
+
     socket?.emit("recordingStateChange", { isRecording: false });
   };
 
@@ -107,7 +175,9 @@ export default function Home() {
             align="center"
           >
             <Stack spacing={{ base: "4", md: "5" }}>
-              <Heading size={{ base: "sm", md: "md" }}>👥 Superclone AI</Heading>
+              <Heading size={{ base: "sm", md: "md" }}>
+                👥 Superclone AI
+              </Heading>
               <Text
                 fontSize={{ base: "lg", md: "xl" }}
                 color="fg.muted"
@@ -119,7 +189,6 @@ export default function Home() {
           </Stack>
         </Container>
       </Box>
-
       <Container maxW="3xl">
         <VStack py={{ base: "8", md: "12" }} align="center" justify="center">
           <Button
@@ -151,18 +220,15 @@ export default function Home() {
           >
             <VStack spacing={4}>
               <Box textAlign="center">
-                <Text mb={2}>Recorded Text:</Text>
-                {texts.map((text, index) => (
-                  <Text key={index}>{text}</Text>
+                {Object.entries(state).map(([key, value]) => (
+                  <Box key={key} mb={4}>
+                    <Text mb={2}>Counter {key}</Text>
+                    <Text mb={2}>Recorded Text:</Text>
+                    <Text>{value.text}</Text>
+                    <Text mb={2}>GPT Response:</Text>
+                    <Text>{value.answer}</Text>
+                  </Box>
                 ))}
-              </Box>
-              <Box textAlign="center">
-                <Text mb={2}>GPT Response:</Text>
-                <Text>
-                  {agentResponse.map((text) => (
-                    <>{text} </>
-                  ))}
-                </Text>
               </Box>
             </VStack>
           </Box>

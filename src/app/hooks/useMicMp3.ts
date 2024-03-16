@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { start_microphone } from "./mic";
+import { startMicrophone } from "@/app/utils/mic3";
 
-type Props = { mp3DataCallback: any };
+type Props = { onMicData: (mp3Data: Int8Array) => void };
 
-const useMicMp3 = ({ mp3DataCallback }: Props) => {
+const useMicMp3 = ({ onMicData }: Props) => {
   const [isRecording, setIsRecording] = useState(false);
   const [audioContext, setAudioContext] = useState<AudioContext | null>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
@@ -18,26 +18,33 @@ const useMicMp3 = ({ mp3DataCallback }: Props) => {
             autoGainControl: true,
           },
         })
-        .then((s) => {
-          const aC = start_microphone(s, mp3DataCallback);
+        .then(async (s) => {
+          const aC = await startMicrophone(s, onMicData);
           setAudioContext(aC);
           setStream(s);
           console.log("mic started");
         });
     } else if (!isRecording && (audioContext || stream)) {
       if (audioContext && audioContext.state !== "closed") {
+        console.log("mic stopped");
         audioContext.close();
+        setAudioContext(null);
       }
       stream?.getTracks().forEach((track) => track.stop());
+      setStream(null);
     }
 
     return () => {
       if (audioContext && audioContext.state !== "closed") {
+        console.log("mic stopped");
         audioContext.close();
+        setAudioContext(null);
       }
       stream?.getTracks().forEach((track) => track.stop());
+      setStream(null);
     };
-  }, [isRecording, mp3DataCallback, audioContext, stream]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- To prevent infinite loop
+  }, [isRecording, onMicData]);
 
   return { isRecording, setIsRecording };
 };

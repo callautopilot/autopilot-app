@@ -1,4 +1,0 @@
-env: standard
-runtime: nodejs18
-service: default
-entrypoint: npm run start

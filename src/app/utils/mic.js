@@ -58,11 +58,11 @@ const factory = (audioDataCallback) => {
       var sampleBlock = sample.slice(j, j + sampleBlockSize);
       var sampleI16 = new Int16Array(sampleBlock.length);
       for (var i = 0; i < sampleBlock.length; i++) {
-        sampleI16[i] = sampleBlock[i] * 10 * 0x7ff; // Convert float to int16 with 10x gain
+        sampleI16[i] = sampleBlock[i] * 10 * 0x7ff;
       }
       var mp3 = mp3encoder.encodeBuffer(sampleI16);
       if (mp3.length > 0) {
-        audioDataCallback(mp3, sampleI16);
+        audioDataCallback(mp3);
       }
     }
   };
