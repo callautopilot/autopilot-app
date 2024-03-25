@@ -1,24 +1,32 @@
-import { ColorModeScript } from '@chakra-ui/react'
-import type { Metadata } from 'next'
-import { fonts } from './fonts'
-import { Providers } from './providers'
+import type { Metadata } from "next";
+import "@/app/styles/global.css";
+import { Inter as FontSans } from "next/font/google";
+
+import { cn } from "@/lib/utils";
+import { ReactNode } from "react";
+
+const fontSans = FontSans({
+  subsets: ["latin"],
+  variable: "--font-sans",
+});
 
 export const metadata: Metadata = {
-  title: 'Superclone AI',
-  description: 'Superclone AI',
-}
+  title: "Superclone AI",
+  description: "Superclone AI",
+};
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
-      <body className={fonts.rubik.variable}>
-        <ColorModeScript initialColorMode={"dark"} />
-        <Providers>{children}</Providers>
+    <html lang="en" suppressHydrationWarning>
+      <head />
+      <body
+        className={cn(
+          "min-h-screen bg-background font-sans antialiased",
+          fontSans.variable
+        )}
+      >
+        {children}
       </body>
     </html>
-  )
+  );
 }

@@ -4,6 +4,7 @@ import { Server } from "socket.io";
 import { createServer } from "http";
 import next from "next";
 import { messageHandler } from "@/ws/messageHandler";
+import { ServerEvents } from "./ws/types";
 
 interface ExtendedApplication extends express.Application {
   io?: Server;
@@ -15,7 +16,7 @@ const requestHandler = nextApp.getRequestHandler();
 nextApp.prepare().then(() => {
   const app: ExtendedApplication = express();
   const httpServer = createServer(app);
-  const io = new Server(httpServer);
+  const io = new Server<ServerEvents>(httpServer);
   app.io = io;
   io.on("connection", (socket) => messageHandler(socket));
 

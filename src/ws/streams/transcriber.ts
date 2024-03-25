@@ -56,7 +56,7 @@ export const getTranscriber = (
         //if (event.is_final) return;
         const transcript = event.channel.alternatives[0].transcript;
         if (!transcript || transcript === "") return;
-        callback(transcript);
+        callback(" " + transcript);
       }
     );
 

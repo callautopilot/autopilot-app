@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { startMicrophone } from "@/app/utils/mic3";
+import { startMicrophone } from "@/app/utils/micMp3";
 
 type Props = { onMicData: (mp3Data: Int8Array) => void };
 
