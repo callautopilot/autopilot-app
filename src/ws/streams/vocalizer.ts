@@ -11,7 +11,11 @@ export type Vocalizer = {
 type Args = {
   onTranscript: (transcript: string, index: number, isFinal: boolean) => void;
   onAnswer: (answer: string, index: number, isFinal: boolean) => void;
-  onSynthesize: (audioBase64: string, index: number) => void;
+  onSynthesize: (
+    audioBase64: string | null,
+    index: number,
+    isFinal: boolean
+  ) => void;
 };
 
 export const createVocalizer = async ({
@@ -46,9 +50,10 @@ export const createVocalizer = async ({
     onTranscript("", index, false);
 
     // Create a new synthesizer
-    const synthesizer = await getSynthesizer((audioBase64) => {
+    const synthesizer = await getSynthesizer((audioBase64, isFinal) => {
       // Call the onSynthesize callback using the current index
-      onSynthesize(audioBase64, currentIndex);
+      console.log("onSynthesize", currentIndex, isFinal);
+      onSynthesize(audioBase64, currentIndex, isFinal);
     });
 
     // Store the synthesizer close function in the local variables
@@ -59,9 +64,12 @@ export const createVocalizer = async ({
 
     // Create a new answerer
     const answerer = getAnswerer(messages, (text) => {
-      // Send the answer chunk to the synthesizer
-      synthesizer.send(text);
-
+      // Send the answer chunk to the synthesizer unless it is empty (because it will close the synthesizer)
+      if (text != "") {
+        // Ensure text ends with a space (to avoid cutting off the last word)
+        const text_with_trailling_space = text.trim() + " ";
+        synthesizer.send(text_with_trailling_space);
+      }
       // Call the onAnswer callback using the current index
       onAnswer(text, currentIndex, false);
     });
@@ -74,13 +82,13 @@ export const createVocalizer = async ({
       // Mark the answerer response as final
       onAnswer("", currentIndex, true);
 
-      // Flush the synthesizer stream and send a space to ensure the last audio is played
-      synthesizer.send(" ", true);
+      // Tell the synthesizer to close
+      synthesizer.close();
 
       // Store the answerer final response as an assistant response in local messages
       messages.push({ role: "assistant", content: response });
     });
-  }, 5000);
+  }, 2000);
 
   const transcriber = await getTranscriber((transcript) => {
     // Add to the local transcript to process

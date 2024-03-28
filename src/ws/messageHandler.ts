@@ -17,10 +17,11 @@ export const messageHandler = (socket: Socket<ServerEvents>): void => {
           socket.emit("assistantOnTranscript", { transcript, index, isFinal });
         },
         onAnswer: (answer, index, isFinal) => {
+          console.log("onAnswer", index, isFinal);
           socket.emit("assistantOnAnswer", { answer, index, isFinal });
         },
-        onSynthesize: (audioBase64, index) => {
-          socket.emit("assistantOnSynthesize", { audioBase64, index });
+        onSynthesize: (audioBase64, index, isFinal) => {
+          socket.emit("assistantOnSynthesize", { audioBase64, index, isFinal });
         },
       });
 

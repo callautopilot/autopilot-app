@@ -34,5 +34,9 @@ export interface ServerEvents {
     index: number;
     isFinal: boolean;
   }) => void;
-  assistantOnSynthesize: (data: { audioBase64: string; index: number }) => void;
+  assistantOnSynthesize: (data: {
+    audioBase64: string | null;
+    index: number;
+    isFinal: boolean;
+  }) => void;
 }

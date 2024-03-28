@@ -5,13 +5,11 @@ import useMicMp3 from "./hooks/useMicMp3";
 import { io, Socket } from "socket.io-client";
 import useAudioPlayer from "./hooks/usePlayAudio";
 import { Skeleton } from "@/components/ui/skeleton";
-import { HeadphonesIcon, MicIcon, MicOffIcon } from "lucide-react";
+import { HeadphonesIcon, MicIcon, MicOffIcon, PencilIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Spinner } from "@/components/ui/spinner";
 
 import useAssistantState from "./hooks/useAssistantState";
 import { ServerEvents } from "@/ws/types";
-import Head from "next/head";
 
 type ClientEvents = {
   connect: () => void;
@@ -19,7 +17,7 @@ type ClientEvents = {
 } & ServerEvents;
 
 export default function Home() {
-  const { state, onTranscriptData, onAnswerData, clearState } =
+  const { state, onTranscriptData, onAnswerData, setAudioIsFinal, clearState } =
     useAssistantState();
 
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -27,12 +25,23 @@ export default function Home() {
 
   const onMicData = useCallback(
     (audioChunk: Int8Array) => {
-      //console.log("Sending audio data to ws");
       socket?.emit("assistantOnListen", { audioChunk });
     },
     [socket]
   );
-  const handleAudioData = useAudioPlayer();
+
+  const onAudioEnded = useCallback(
+    ({ index, isFinal }: { index: number; isFinal: boolean }) => {
+      console.log("onAudioEnded", index, isFinal);
+      setAudioIsFinal(index, isFinal);
+    },
+    [setAudioIsFinal]
+  );
+
+  const handleAudioData = useAudioPlayer({
+    onAudioEnded,
+    jumpToNextIndexIfAvailable: true,
+  });
 
   const { isRecording, setIsRecording } = useMicMp3({ onMicData });
 
@@ -42,29 +51,24 @@ export default function Home() {
       setSocket(socket);
     });
     audioContextRef.current = new window.AudioContext();
-
     return () => {
       socket.disconnect();
     };
   }, []);
 
   useEffect(() => {
-    console.log(
-      "New socket handler",
-      audioContextRef.current?.state,
-      socket?.id
-    );
-
     socket?.on("assistantOnTranscript", onTranscriptData);
 
-    socket?.on("assistantOnSynthesize", ({ audioBase64, index }) => {
-      //console.log("elevenlab event", index);
+    socket?.on("assistantOnSynthesize", ({ audioBase64, index, isFinal }) => {
       if (audioContextRef.current) {
-        handleAudioData(audioBase64, audioContextRef.current);
+        handleAudioData(audioBase64, audioContextRef.current, index, isFinal);
       }
     });
 
-    socket?.on("assistantOnAnswer", onAnswerData);
+    socket?.on("assistantOnAnswer", ({ answer, index, isFinal }) => {
+      console.log("assistantOnAnswer", answer, index, isFinal);
+      onAnswerData({ answer, index, isFinal });
+    });
   }, [socket, handleAudioData, onAnswerData, onTranscriptData]);
 
   const handleRecord = async () => {
@@ -104,9 +108,13 @@ export default function Home() {
                 <TextLine
                   text={value.answer}
                   speaker="AI"
-                  isLoading={value.answerIsLoading}
+                  isLoading={value.answerIsLoading || value.audioIsLoading}
                 >
-                  <HeadphonesIcon className="black" />
+                  {value.audioIsLoading ? (
+                    <HeadphonesIcon className="black" />
+                  ) : (
+                    <PencilIcon className="black" />
+                  )}
                 </TextLine>
               </div>
             ))}

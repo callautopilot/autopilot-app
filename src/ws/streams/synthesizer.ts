@@ -5,12 +5,12 @@ import WebSocket from "ws";
 // https://elevenlabs.io/docs/api-reference/websockets#example-of-voice-streaming-using-elevenlabs-and-openai
 
 export type Synthesizer = {
-  send: (text: string, flush?: boolean) => void;
+  send: (text: string) => void;
   close: () => void;
 };
 
 export const getSynthesizer = (
-  callback: (audioBase64: string) => void
+  callback: (audioBase64: string | null, isFinal: boolean) => void
 ): Promise<Synthesizer> => {
   // English
   const voiceId = "pNInz6obpgDQGcFmaJgB";
@@ -24,35 +24,30 @@ export const getSynthesizer = (
   return new Promise<Synthesizer>((resolve, reject) => {
     const ws = new WebSocket(uri);
 
-    const send = (text: string, flush: boolean = false) => {
-      console.log("Sending text to ElevenLabs:", text);
+    const send = (text: string) => {
+      console.log("Sending text", text);
       ws.send(
         JSON.stringify({
           text,
           voice_settings: { stability: 0.5, similarity_boost: 0.8 },
           xi_api_key: env.ELEVEN_LABS_API_KEY,
-          flush,
           try_trigger_generation: true,
         })
       );
     };
 
     const close = () => {
-      send(" ", true);
       send("");
     };
 
     ws.on("message", (rawData) => {
-      //console.log("Received data from ElevenLabs");
       const data = JSON.parse(rawData.toString());
-
       // Emit the data to the client
-      if ("audio" in data && data["audio"]) {
-        //console.log("Emitting audio to client");
-        callback(data["audio"]);
-      }
-      if ("isFinal" in data && data["isFinal"]) {
-        //console.log("Closing ElevenLabs connection");
+      const audioBase64 = data["audio"] as string | null;
+      const isFinal = !!data["isFinal"];
+      callback(audioBase64, isFinal);
+
+      if (!!data["isFinal"]) {
         ws.close();
       }
     });

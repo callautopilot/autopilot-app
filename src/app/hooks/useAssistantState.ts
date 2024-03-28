@@ -5,6 +5,7 @@ type AssistantStateItem = {
   transcriptIsLoading: boolean;
   answer: string;
   answerIsLoading: boolean;
+  audioIsLoading: boolean;
 };
 type AssistantState = Record<string, AssistantStateItem>;
 
@@ -14,19 +15,20 @@ const defaultState = {
     transcriptIsLoading: true,
     answer: "Sure, I can help you with that.",
     answerIsLoading: true,
+    audioIsLoading: true,
   },
   "1": {
     transcript: "What do you need help with?",
     transcriptIsLoading: false,
     answer: "I need help with my homework.",
     answerIsLoading: false,
+    audioIsLoading: false,
   },
 };
 
 const useAssistantState = () => {
-  const [state, setState] = useState<AssistantState>(defaultState);
-  //console.log("state", state);
-
+  const [state, setState] = useState<AssistantState>({});
+  console.log("state", JSON.stringify(state, null, 2));
   const onTranscriptData = useCallback(
     ({
       transcript,
@@ -37,8 +39,6 @@ const useAssistantState = () => {
       index: number;
       isFinal: boolean;
     }) => {
-      console.log("transcript", index, transcript, isFinal);
-
       setState((prevState) => {
         const newState = { ...prevState };
         newState[index] = {
@@ -62,13 +62,12 @@ const useAssistantState = () => {
       index: number;
       isFinal: boolean;
     }) => {
-      console.log("answer", index, answer, isFinal);
       setState((prevState) => {
         const newState = { ...prevState };
         newState[index] = {
           ...newState[index],
           answer: (newState[index]?.answer || "") + answer,
-          transcriptIsLoading: !isFinal,
+          answerIsLoading: !isFinal,
         };
 
         return newState;
@@ -76,6 +75,17 @@ const useAssistantState = () => {
     },
     []
   );
+
+  const setAudioIsFinal = useCallback((index: number, isFinal: boolean) => {
+    setState((prevState) => {
+      const newState = { ...prevState };
+      newState[index] = {
+        ...newState[index],
+        audioIsLoading: !isFinal,
+      };
+      return newState;
+    });
+  }, []);
 
   const clearState = useCallback(() => {
     setState({});
@@ -85,6 +95,7 @@ const useAssistantState = () => {
     state,
     onTranscriptData,
     onAnswerData,
+    setAudioIsFinal,
     clearState,
   };
 };

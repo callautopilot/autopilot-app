@@ -34,7 +34,6 @@ export const getTranscriber = (
       const close = () => {
         if (client) {
           client.finish();
-          console.log("Deepgram connection closed");
         }
       };
 
@@ -51,9 +50,6 @@ export const getTranscriber = (
     client.on(
       LiveTranscriptionEvents.Transcript,
       (event: LiveTranscriptionEvent) => {
-        console.log("Deepgram transcript", JSON.stringify(event));
-        // TODO: Sould this be here?
-        //if (event.is_final) return;
         const transcript = event.channel.alternatives[0].transcript;
         if (!transcript || transcript === "") return;
         callback(" " + transcript);
