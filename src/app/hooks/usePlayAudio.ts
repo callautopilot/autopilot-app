@@ -14,13 +14,12 @@ type Args = {
     index: number;
     isFinal: boolean;
   }) => void;
-  jumpToNextIndexIfAvailable: boolean;
 };
 
-const useAudioPlayer = ({ onAudioEnded, jumpToNextIndexIfAvailable }: Args) => {
+const useAudioPlayer = ({ onAudioEnded }: Args) => {
   const audioQueue = useRef<AudioQueue>([]);
   const sourceRef = useRef<AudioBufferSourceNode | null>(null);
-  const currentIndexRef = useRef<number>(null);
+  const currentIndex = useRef<number>(null);
 
   const playNextAudio = useCallback(
     async (audioContext: AudioContext) => {
@@ -47,7 +46,6 @@ const useAudioPlayer = ({ onAudioEnded, jumpToNextIndexIfAvailable }: Args) => {
         const source = audioContext.createBufferSource();
         source.buffer = audioBuffer;
         source.connect(audioContext.destination);
-        currentIndexRef.current = nextAudioElem.index;
         source.start();
         source.onended = () => {
           sourceRef.current = null;
@@ -73,44 +71,21 @@ const useAudioPlayer = ({ onAudioEnded, jumpToNextIndexIfAvailable }: Args) => {
       index: number,
       isFinal: boolean
     ) => {
-      // Ignore the audio if the index is less than the current index
-      if (currentIndexRef.current != null && index < currentIndexRef.current) {
-        return;
-      }
-
       const audioBufferPromise = dataToAudioBufferPromise(
         audioBase64,
         audioContext
       );
       audioQueue.current.push({ audioBufferPromise, index, isFinal });
 
-      const isNextIndex =
-        currentIndexRef.current != null && currentIndexRef.current !== index;
+      const isNewIndex =
+        currentIndex.current != null && currentIndex.current !== index;
+      const isPlaying = sourceRef.current !== null;
 
-      // If jumpToNextIndexIfAvailable is true and the next index is available
-      if (jumpToNextIndexIfAvailable && isNextIndex) {
-        // Clear the queue elements that are below the next index
-        audioQueue.current = audioQueue.current.filter(
-          (audioElem) => audioElem.index >= index
-        );
-        // Stop the current audio if it is playing
-        if (sourceRef.current !== null) {
-          // Clear the source onEnded callback to handle it manually
-          sourceRef.current.onended = null;
-          sourceRef.current.stop();
-          sourceRef.current = null;
-          onAudioEnded({
-            index: currentIndexRef.current,
-            isFinal: true,
-          });
-        }
-      }
-      // If the audio is not playing, play the next audio
-      if (!sourceRef.current !== null) {
+      if (!isPlaying) {
         playNextAudio(audioContext);
       }
     },
-    [playNextAudio, jumpToNextIndexIfAvailable, onAudioEnded]
+    [playNextAudio]
   );
 
   return handleAudioData;

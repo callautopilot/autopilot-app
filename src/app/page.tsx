@@ -40,7 +40,6 @@ export default function Home() {
 
   const handleAudioData = useAudioPlayer({
     onAudioEnded,
-    jumpToNextIndexIfAvailable: true,
   });
 
   const { isRecording, setIsRecording } = useMicMp3({ onMicData });
