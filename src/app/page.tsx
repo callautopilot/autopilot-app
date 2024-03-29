@@ -1,173 +1,197 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import {
-  Box,
-  Button,
-  Container,
-  Stack,
-  Text,
-  VStack,
-  useToast,
-  Heading,
-} from "@chakra-ui/react";
-import { FiMic, FiMicOff } from "react-icons/fi";
-import useMicMp3 from "./useMicMp3";
+import { useCallback, useEffect, useRef, useState } from "react";
+import useMicMp3 from "./hooks/useMicMp3";
 import { io, Socket } from "socket.io-client";
+import useAudioPlayer from "./hooks/usePlayAudio";
+import { Skeleton } from "@/components/ui/skeleton";
+import { HeadphonesIcon, MicIcon, MicOffIcon, PencilIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
+
+import useAssistantState from "./hooks/useAssistantState";
+import { ServerEvents } from "@/ws/types";
+
+type ClientEvents = {
+  connect: () => void;
+  disconnect: () => void;
+} & ServerEvents;
 
 export default function Home() {
-  const [texts, setTexts] = useState<string[]>([]);
-  const [agentResponse, setAgentResponse] = useState<string[]>([]);
+  const { state, onTranscriptData, onAnswerData, setAudioIsFinal, clearState } =
+    useAssistantState();
 
-  const [socket, setSocket] = useState<Socket | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const [socket, setSocket] = useState<Socket<ClientEvents> | null>(null);
 
-  const mp3DataCallback = useCallback(
-    (data: Int16Array) => {
-      socket?.emit("audio", data);
+  const onMicData = useCallback(
+    (audioChunk: Int8Array) => {
+      socket?.emit("assistantOnListen", { audioChunk });
     },
     [socket]
   );
 
-  const { isRecording, setIsRecording } = useMicMp3({ mp3DataCallback });
-  
-  useEffect(() => {
-    const socket: Socket = io(window.location.origin);
-    setSocket(socket);
+  const onAudioEnded = useCallback(
+    ({ index, isFinal }: { index: number; isFinal: boolean }) => {
+      console.log("onAudioEnded", index, isFinal);
+      setAudioIsFinal(index, isFinal);
+    },
+    [setAudioIsFinal]
+  );
 
+  const handleAudioData = useAudioPlayer({
+    onAudioEnded,
+  });
+
+  const { isRecording, setIsRecording } = useMicMp3({ onMicData });
+
+  useEffect(() => {
+    const socket: Socket<ClientEvents> = io(window.location.origin);
+    socket.on("connect", () => {
+      setSocket(socket);
+    });
+    audioContextRef.current = new window.AudioContext();
     return () => {
       socket.disconnect();
     };
   }, []);
 
   useEffect(() => {
-    socket?.on("message", (data: string) => {
-      console.log("message", JSON.stringify(data));
-      setTexts((texts) => [...texts, data]);
-      console.log("message", data);
-    });
+    socket?.on("assistantOnTranscript", onTranscriptData);
 
-    socket?.on("agentResponse", (data: string) => {
-      if (data) {
-        setAgentResponse((agentResponse) => [...agentResponse, data.trim()]);
-        console.log("message", data.trim());
+    socket?.on("assistantOnSynthesize", ({ audioBase64, index, isFinal }) => {
+      if (audioContextRef.current) {
+        handleAudioData(audioBase64, audioContextRef.current, index, isFinal);
       }
     });
-  }, [socket]);
 
-  const [hovered, setHovered] = useState(false);
-  const toast = useToast();
-
-  const renderIcon = () => {
-    return isRecording ? hovered ? <FiMicOff /> : <FiMic /> : <FiMic />;
-  };
-
-  const handleRecord = () => {
-    toast({
-      title: "Recording started",
-      status: "info",
-      duration: 3000,
-      isClosable: false,
-      position: "bottom",
-      variant: "subtle",
-      size: "sm",
-      containerStyle: {
-        background: "transparent",
-        borderColor: "blue.500",
-        color: "blue.500",
-      },
+    socket?.on("assistantOnAnswer", ({ answer, index, isFinal }) => {
+      console.log("assistantOnAnswer", answer, index, isFinal);
+      onAnswerData({ answer, index, isFinal });
     });
+  }, [socket, handleAudioData, onAnswerData, onTranscriptData]);
+
+  const handleRecord = async () => {
+    clearState();
     setIsRecording(true);
-    socket?.emit("recordingStateChange", { isRecording: true });
+    if (audioContextRef.current?.state === "suspended") {
+      await audioContextRef.current?.resume();
+    }
+    socket?.emit("assistantSetRecording", { isRecording: true });
   };
 
   const handleStop = () => {
-    toast({
-      title: "Recording stopped",
-      status: "success",
-      duration: 3000,
-      isClosable: false,
-      variant: "subtle",
-      containerStyle: {
-        background: "transparent",
-        borderColor: "green.500",
-        color: "green.500",
-      },
-    });
     setIsRecording(false);
-    socket?.emit("recordingStateChange", { isRecording: false });
+    socket?.emit("assistantSetRecording", { isRecording: false });
   };
 
   return (
-    <>
-      <Box bg="bg.surface">
-        <Container py={{ base: "16", md: "24" }}>
-          <Stack
-            spacing={{ base: "12", md: "16" }}
-            textAlign="center"
-            align="center"
-          >
-            <Stack spacing={{ base: "4", md: "5" }}>
-              <Heading size={{ base: "sm", md: "md" }}>👥 Superclone AI</Heading>
-              <Text
-                fontSize={{ base: "lg", md: "xl" }}
-                color="fg.muted"
-                maxW="3xl"
-              >
-                Send your clone to attend your meetings
-              </Text>
-            </Stack>
-          </Stack>
-        </Container>
-      </Box>
-
-      <Container maxW="3xl">
-        <VStack py={{ base: "8", md: "12" }} align="center" justify="center">
-          <Button
-            leftIcon={renderIcon()}
-            colorScheme={isRecording ? "red" : "green"}
-            onClick={isRecording ? handleStop : handleRecord}
-            onMouseEnter={() => setHovered(true)}
-            onMouseLeave={() => setHovered(false)}
-            _hover={{
-              bg: isRecording ? "red.500" : "green.500",
-              transform: "scale(1.04)",
-            }}
-            sx={{
-              animation: isRecording ? "pulse 2s infinite" : "none",
-            }}
-          >
-            {isRecording ? "Recording..." : "Start"}
-          </Button>
-        </VStack>
-      </Container>
-
-      <Box as="section">
-        <Container maxW="3xl">
-          <Box
-            bg="bg.surface"
-            boxShadow="sm"
-            borderRadius="lg"
-            p={{ base: "4", md: "6" }}
-          >
-            <VStack spacing={4}>
-              <Box textAlign="center">
-                <Text mb={2}>Recorded Text:</Text>
-                {texts.map((text, index) => (
-                  <Text key={index}>{text}</Text>
-                ))}
-              </Box>
-              <Box textAlign="center">
-                <Text mb={2}>GPT Response:</Text>
-                <Text>
-                  {agentResponse.map((text) => (
-                    <>{text} </>
-                  ))}
-                </Text>
-              </Box>
-            </VStack>
-          </Box>
-        </Container>
-      </Box>
-    </>
+    <div className="p-8">
+      <div className="p-4 border rounded shadow-2xl">
+        <RecordButton
+          isRecording={isRecording}
+          start={handleRecord}
+          stop={handleStop}
+        />
+        <div className="pl-4 pt-4 ">
+          <div className="text-xl font-bold pb-2">Conversation</div>
+          <div className="space-y-2">
+            {Object.entries(state).map(([key, value]) => (
+              <div key={key} className="space-y-2">
+                <TextLine
+                  text={value.transcript}
+                  speaker="You"
+                  isLoading={value.transcriptIsLoading}
+                >
+                  <MicIcon className="text-red-500 pt-[6px]" />
+                </TextLine>
+                <TextLine
+                  text={value.answer}
+                  speaker="AI"
+                  isLoading={value.answerIsLoading || value.audioIsLoading}
+                >
+                  {value.audioIsLoading ? (
+                    <HeadphonesIcon className="black" />
+                  ) : (
+                    <PencilIcon className="black" />
+                  )}
+                </TextLine>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
+
+const RecordButton = ({
+  isRecording,
+  start,
+  stop,
+}: {
+  isRecording: boolean;
+  start: () => void;
+  stop: () => void;
+}) => {
+  const [isHovered, setIsHovered] = useState(false);
+
+  const text = isRecording
+    ? isHovered
+      ? "Click to stop"
+      : "Recording..."
+    : isHovered
+    ? "Click to start"
+    : "Click to start";
+
+  const IconComponent = isRecording
+    ? isHovered
+      ? MicOffIcon
+      : MicIcon
+    : isHovered
+    ? MicIcon
+    : MicOffIcon;
+
+  const color = isRecording ? "text-red-500" : "text-black";
+
+  return (
+    <Button
+      variant={"ghost"}
+      className="font-medium justify-start"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      onClick={isRecording ? stop : start}
+    >
+      <IconComponent className={`mr-2 h-6 w-6 ${color}`} />
+      <div className={`${color}`}>{text}</div>
+    </Button>
+  );
+};
+
+const TextLine = ({
+  text,
+  speaker,
+  isLoading,
+  children,
+}: {
+  text?: string;
+  speaker: string;
+  isLoading: boolean;
+  children: React.ReactNode;
+}) => (
+  <div className="flex flex-row text-sm space-x-2 items-start">
+    <div
+      className={`w-4 h-4 flex items-center justify-center ${
+        isLoading ? "" : "invisible"
+      }`}
+    >
+      {children}
+    </div>
+
+    <div className="w-[35px] flex-shrink-0 text-right">{`${speaker}:`}</div>
+    {text || text !== "" ? (
+      <div className="font-medium">{text}</div>
+    ) : (
+      <Skeleton className="h-[20px] w-full" />
+    )}
+  </div>
+);

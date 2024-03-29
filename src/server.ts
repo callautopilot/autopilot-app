@@ -1,38 +1,31 @@
-import dotenv from "dotenv";
-
-const envFilePath =
-  process.env.NODE_ENV === "production" ? ".env" : ".env.local";
-dotenv.config({ path: envFilePath });
-
+import { env } from "@/utils/env";
 import express, { Request, Response } from "express";
 import { Server } from "socket.io";
 import { createServer } from "http";
 import next from "next";
-import { handleMessages } from "./messageHandler";
+import { messageHandler } from "@/ws/messageHandler";
+import { ServerEvents } from "./ws/types";
 
 interface ExtendedApplication extends express.Application {
   io?: Server;
 }
 
-const dev = process.env.NODE_ENV !== "production";
-const nextApp = next({ dev });
-const handle = nextApp.getRequestHandler();
+const nextApp = next({ dev: env.IS_DEV });
+const requestHandler = nextApp.getRequestHandler();
 
 nextApp.prepare().then(() => {
   const app: ExtendedApplication = express();
   const httpServer = createServer(app);
-  const io = new Server(httpServer);
+  const io = new Server<ServerEvents>(httpServer);
   app.io = io;
-  io.on("connection", (socket) => handleMessages(io, socket));
+  io.on("connection", (socket) => messageHandler(socket));
 
   app.all("*", (req: Request, res: Response) => {
-    return handle(req, res);
+    return requestHandler(req, res);
   });
 
-  const port = process.env.PORT || 3000;
-
-  httpServer.listen(port, (err?: any) => {
+  httpServer.listen(env.PORT, (err?: any) => {
     if (err) throw err;
-    console.log(`> Ready on http://localhost:${port}`);
+    console.log(`> [${env.NODE_ENV}] Ready on http://localhost:${env.PORT}`);
   });
 });
