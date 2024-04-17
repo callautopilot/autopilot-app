@@ -1,47 +1,23 @@
 import { useState, useEffect } from 'react';
-//import useClientEnv from '@/app/hooks/useClientEnv';
-import { EnvVars } from '@/app/hooks/useClientEnv';
+import useClientEnv from '@/app/hooks/useClientEnv';
 
 
 const ApiKeyForm = () => {
   const [error, setError] = useState<string>('');
-
-  // Initializing state from localStorage
-  const [keys, setKeys] = useState({
-    openAIKey: localStorage.getItem('OPENAI_API_KEY') || '',
-    deepgramKey: localStorage.getItem('DEEPGRAM_API_KEY') || '',
-    elevenLabsKey: localStorage.getItem('ELEVEN_LABS_API_KEY') || '',
-    elevenLabsVoiceID: localStorage.getItem('ELEVEN_LABS_VOICE_ID') || '',
-  });
-
-  useEffect(() => {
-    // Sync state to localStorage when component mounts
-    // Refreshes current session values if env vars have updated defaults
-    localStorage.setItem('OPENAI_API_KEY', keys.openAIKey);
-    localStorage.setItem('DEEPGRAM_API_KEY', keys.deepgramKey);
-    localStorage.setItem('ELEVEN_LABS_API_KEY', keys.elevenLabsKey);
-    localStorage.setItem('ELEVEN_LABS_VOICE_ID', keys.elevenLabsVoiceID);
-  }, []);
+  const [envVars, setEnvVar] = useClientEnv();
 
   useEffect(() => {
     // Check if all keys are empty and set an error message if they are
-    if (!keys.openAIKey || !keys.deepgramKey || !keys.elevenLabsKey || !keys.elevenLabsVoiceID) {
+    if (!envVars.OPENAI_API_KEY || !envVars.DEEPGRAM_API_KEY || !envVars.ELEVEN_LABS_API_KEY || !envVars.ELEVEN_LABS_VOICE_ID) {
       setError('API keys are missing, please configure them below');
     } else {
       setError('');
     }
-  }, [keys]);
+  }, [envVars]);
 
-  const handleInputChange = (field: keyof EnvVars, value: string) => {
-    const fieldMap: Record<keyof EnvVars, string> = {
-      openAIKey: 'OPENAI_API_KEY',
-      deepgramKey: 'DEEPGRAM_API_KEY',
-      elevenLabsKey: 'ELEVEN_LABS_API_KEY',
-      elevenLabsVoiceID: 'ELEVEN_LABS_VOICE_ID',
-    };
-
-    setKeys(prev => ({ ...prev, [field]: value }));
-    localStorage.setItem(fieldMap[field], value);
+  const handleInputChange = (field: keyof typeof envVars, value: string) => {
+    console.log("change value:", value, "form field:", field);
+    setEnvVar(field, value);
   };
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>): void => {
@@ -51,19 +27,12 @@ const ApiKeyForm = () => {
   };
 
   const handleReset = () => {
-    // Reset keys
-    setKeys({
-      openAIKey: '',
-      deepgramKey: '',
-      elevenLabsKey: '',
-      elevenLabsVoiceID: '',
-    });
-
-    // Clear local storage
-    localStorage.removeItem('OPENAI_API_KEY');
-    localStorage.removeItem('DEEPGRAM_API_KEY');
-    localStorage.removeItem('ELEVEN_LABS_API_KEY');
-    localStorage.removeItem('ELEVEN_LABS_VOICE_ID');
+    // Reset keys by setting them to empty strings
+    setEnvVar('OPENAI_API_KEY', '');
+    setEnvVar('DEEPGRAM_API_KEY', '');
+    setEnvVar('ELEVEN_LABS_API_KEY', '');
+    setEnvVar('ELEVEN_LABS_VOICE_ID', '');
+    setError('API keys have been reset.');
   };
 
   return (
@@ -77,8 +46,8 @@ const ApiKeyForm = () => {
           <input
             id="openAIKey"
             type="text"
-            value={keys.openAIKey ? keys.openAIKey : ''}
-            onChange={(e) => handleInputChange('openAIKey', e.target.value)}
+            value={envVars.OPENAI_API_KEY || ''}
+            onChange={(e) => handleInputChange('OPENAI_API_KEY', e.target.value)}
             className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
           />
         </div>
@@ -89,8 +58,8 @@ const ApiKeyForm = () => {
           <input
             id="deepgramKey"
             type="text"
-            value={keys.deepgramKey ? keys.deepgramKey : ''}
-            onChange={(e) => handleInputChange('deepgramKey', e.target.value)}
+            value={envVars.DEEPGRAM_API_KEY || ''}
+            onChange={(e) => handleInputChange('DEEPGRAM_API_KEY', e.target.value)}
             className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
           />
         </div>
@@ -101,8 +70,8 @@ const ApiKeyForm = () => {
           <input
             id="elevenLabsKey"
             type="text"
-            value={keys.elevenLabsKey ? keys.elevenLabsKey : ''}
-            onChange={(e) => handleInputChange('elevenLabsKey', e.target.value)}
+            value={envVars.ELEVEN_LABS_API_KEY || ''}
+            onChange={(e) => handleInputChange('ELEVEN_LABS_API_KEY', e.target.value)}
             className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
           />
         </div>
@@ -113,8 +82,8 @@ const ApiKeyForm = () => {
           <input
             id="elevenLabsVoiceID"
             type="text"
-            value={keys.elevenLabsVoiceID ? keys.elevenLabsVoiceID : ''}
-            onChange={(e) => handleInputChange('elevenLabsVoiceID', e.target.value)}
+            value={envVars.ELEVEN_LABS_VOICE_ID || ''}
+            onChange={(e) => handleInputChange('ELEVEN_LABS_VOICE_ID', e.target.value)}
             className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
           />
         </div>
