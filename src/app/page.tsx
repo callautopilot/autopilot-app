@@ -5,11 +5,12 @@ import useMicMp3 from "./hooks/useMicMp3";
 import { io, Socket } from "socket.io-client";
 import useAudioPlayer from "./hooks/usePlayAudio";
 import { Skeleton } from "@/components/ui/skeleton";
-import { HeadphonesIcon, MicIcon, MicOffIcon, PencilIcon } from "lucide-react";
+import { HeadphonesIcon, MicIcon, MicOffIcon, PencilIcon, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 import useAssistantState from "./hooks/useAssistantState";
 import { ServerEvents } from "@/ws/types";
+import ApiKeyForm from "@/components/ApiKeyForm";
 
 type ClientEvents = {
   connect: () => void;
@@ -20,6 +21,10 @@ export default function Home() {
   const { state, onTranscriptData, onAnswerData, setAudioIsFinal, clearState } =
     useAssistantState();
 
+  // Toggle the env form visibility
+  const toggleForm = () => setShowForm(!showForm);
+  const [showForm, setShowForm] = useState(false);
+  
   const audioContextRef = useRef<AudioContext | null>(null);
   const [socket, setSocket] = useState<Socket<ClientEvents> | null>(null);
 
@@ -86,13 +91,32 @@ export default function Home() {
 
   return (
     <div className="p-8">
+      <button
+        onMouseEnter={(e) => e.currentTarget.classList.replace('bg-blue-500', 'bg-blue-600')}
+        onMouseLeave={(e) => e.currentTarget.classList.replace('bg-blue-600', 'bg-blue-500')}
+        onClick={toggleForm}
+        className="flex items-center font-medium justify-start bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded shadow-lg mb-4 transition-colors duration-200 ease-in-out"
+      >
+        <Settings className="mr-2 h-6 w-6" />
+        <span>{showForm ? 'Hide API Keys Form' : 'Set API Keys'}</span>
+      </button>
+
+      <main className="flex items-center my-4">
+        {showForm && (
+          <div className="p-4 border rounded shadow-2xl w-full max-w-md">
+            <ApiKeyForm />
+          </div>
+        )}
+      </main>
+
       <div className="p-4 border rounded shadow-2xl">
         <RecordButton
           isRecording={isRecording}
           start={handleRecord}
           stop={handleStop}
         />
-        <div className="pl-4 pt-4 ">
+        <div className="pl-4 pt-4">
+          
           <div className="text-xl font-bold pb-2">Conversation</div>
           <div className="space-y-2">
             {Object.entries(state).map(([key, value]) => (

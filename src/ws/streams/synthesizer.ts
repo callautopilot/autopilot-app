@@ -13,7 +13,7 @@ export const getSynthesizer = (
   callback: (audioBase64: string | null, isFinal: boolean) => void
 ): Promise<Synthesizer> => {
   // English
-  const voiceId = "pNInz6obpgDQGcFmaJgB";
+  const voiceId = env.ELEVEN_LABS_VOICE_ID;
   const uri = `wss://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream-input?model_id=eleven_monolingual_v1&optimize_streaming_latency=4`;
 
   // French
