@@ -1,9 +1,9 @@
-import { env } from "@/utils/env";
 import {
   createClient,
   LiveTranscriptionEvent,
   LiveTranscriptionEvents,
 } from "@deepgram/sdk";
+import { getEnvVars } from "@/ws/runtimeEnv";
 
 export type Transcriber = {
   send: (audioChunk: any) => void;
@@ -11,9 +11,12 @@ export type Transcriber = {
 };
 
 export const getTranscriber = (
+  socketId: string,
   callback: (transcript: string) => void
 ): Promise<Transcriber> => {
   return new Promise((resolve, reject) => {
+    const env = getEnvVars(socketId);
+
     const client = createClient(env.DEEPGRAM_API_KEY).listen.live({
       punctuate: true,
       smart_format: true,

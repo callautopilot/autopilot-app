@@ -3,6 +3,7 @@ import { Transcriber } from "@/ws/streams/transcriber";
 import { Synthesizer } from "@/ws/streams/synthesizer";
 import { Answerer } from "@/ws/streams/answerer";
 import { Vocalizer } from "./streams/vocalizer";
+import { EnvVars } from "@/app/hooks/useClientEnv";
 
 export type State = {
   // State data
@@ -39,4 +40,5 @@ export interface ServerEvents {
     index: number;
     isFinal: boolean;
   }) => void;
+  envVars: (data: EnvVars) => void;
 }

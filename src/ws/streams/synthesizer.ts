@@ -1,5 +1,5 @@
-import { env } from "@/utils/env";
 import WebSocket from "ws";
+import { getEnvVars } from "@/ws/runtimeEnv";
 
 // TODO: look at this to send only phrase that are...
 // https://elevenlabs.io/docs/api-reference/websockets#example-of-voice-streaming-using-elevenlabs-and-openai
@@ -10,8 +10,11 @@ export type Synthesizer = {
 };
 
 export const getSynthesizer = (
+  socketId: string,
   callback: (audioBase64: string | null, isFinal: boolean) => void
 ): Promise<Synthesizer> => {
+  const env = getEnvVars(socketId);
+  
   // English
   const voiceId = env.ELEVEN_LABS_VOICE_ID;
   const uri = `wss://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream-input?model_id=eleven_monolingual_v1&optimize_streaming_latency=4`;

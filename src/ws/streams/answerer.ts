@@ -1,9 +1,9 @@
-import { env } from "@/utils/env";
 import OpenAI from "openai";
 import {
   ChatCompletionChunk,
   ChatCompletionMessageParam,
 } from "openai/resources";
+import { getEnvVars } from "@/ws/runtimeEnv";
 
 export type Answerer = {
   response: Promise<string>;
@@ -11,6 +11,7 @@ export type Answerer = {
 };
 
 export const getAnswerer = (
+  socketId: string,
   messages: ChatCompletionMessageParam[],
   callback: (text: string) => void
 ): Answerer => {
@@ -18,6 +19,7 @@ export const getAnswerer = (
   const signal = controller.signal;
   console.log("messages", messages);
   const response = new Promise<string>(async (resolve) => {
+    const env = getEnvVars(socketId);
     const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY! });
 
     const response = await openai.chat.completions.create(

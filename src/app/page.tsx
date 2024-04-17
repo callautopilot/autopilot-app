@@ -7,10 +7,11 @@ import useAudioPlayer from "./hooks/usePlayAudio";
 import { Skeleton } from "@/components/ui/skeleton";
 import { HeadphonesIcon, MicIcon, MicOffIcon, PencilIcon, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
-
-import useAssistantState from "./hooks/useAssistantState";
-import { ServerEvents } from "@/ws/types";
 import ApiKeyForm from "@/components/ApiKeyForm";
+
+import { ServerEvents } from "@/ws/types";
+import useAssistantState from "./hooks/useAssistantState";
+import useClientEnv from "./hooks/useClientEnv";
 
 type ClientEvents = {
   connect: () => void;
@@ -20,6 +21,7 @@ type ClientEvents = {
 export default function Home() {
   const { state, onTranscriptData, onAnswerData, setAudioIsFinal, clearState } =
     useAssistantState();
+  const [envVars] = useClientEnv();
 
   // Toggle the env form visibility
   const toggleForm = () => setShowForm(!showForm);
@@ -34,6 +36,13 @@ export default function Home() {
     },
     [socket]
   );
+
+  // Send client-side env vars
+  useEffect(() => {
+    if (socket && envVars) {
+      socket.emit("envVars", envVars);
+    }
+  }, [socket, envVars]);
 
   const onAudioEnded = useCallback(
     ({ index, isFinal }: { index: number; isFinal: boolean }) => {
