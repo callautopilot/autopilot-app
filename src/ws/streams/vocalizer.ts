@@ -9,6 +9,7 @@ export type Vocalizer = {
 };
 
 type Args = {
+  socketId: string,
   onTranscript: (transcript: string, index: number, isFinal: boolean) => void;
   onAnswer: (answer: string, index: number, isFinal: boolean) => void;
   onSynthesize: (
@@ -19,6 +20,7 @@ type Args = {
 };
 
 export const createVocalizer = async ({
+  socketId,
   onTranscript,
   onAnswer,
   onSynthesize,
@@ -50,7 +52,7 @@ export const createVocalizer = async ({
     onTranscript("", index, false);
 
     // Create a new synthesizer
-    const synthesizer = await getSynthesizer((audioBase64, isFinal) => {
+    const synthesizer = await getSynthesizer(socketId, (audioBase64, isFinal) => {
       // Call the onSynthesize callback using the current index
       console.log("onSynthesize", currentIndex, isFinal);
       onSynthesize(audioBase64, currentIndex, isFinal);
@@ -63,7 +65,7 @@ export const createVocalizer = async ({
     messages.push({ role: "user", content: transcript });
 
     // Create a new answerer
-    const answerer = getAnswerer(messages, (text) => {
+    const answerer = getAnswerer(socketId, messages, (text: string) => {
       // Send the answer chunk to the synthesizer unless it is empty (because it will close the synthesizer)
       if (text != "") {
         // Ensure text ends with a space (to avoid cutting off the last word)
@@ -90,7 +92,7 @@ export const createVocalizer = async ({
     });
   }, 2000);
 
-  const transcriber = await getTranscriber((transcript) => {
+  const transcriber = await getTranscriber(socketId, (transcript) => {
     // Add to the local transcript to process
     transcriptToProcess += transcript;
 
