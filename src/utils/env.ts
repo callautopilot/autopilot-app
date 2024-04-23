@@ -7,8 +7,8 @@ dotenv.config({ path: envFilePath });
 
 const parsedEnvValidator = z.object({
   // Server
-  NODE_ENV: z.string().default("development"),
-  PORT: z.number().default(3000),
+  NODE_ENV: z.string().optional().default("development"),
+  PORT: z.number().optional().default(3000),
 
   // External services
   //OPENAI_API_KEY: z.string().optional().default(""),
@@ -28,7 +28,7 @@ try {
     console.error(`Environment validation error: ${error.flatten()}`);
     process.exit(1);
   }
-  
+
   throw error;
 }
 
