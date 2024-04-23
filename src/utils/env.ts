@@ -11,10 +11,10 @@ const parsedEnvValidator = z.object({
   PORT: z.number().default(3000),
 
   // External services
-  OPENAI_API_KEY: z.string().optional().default(''),
-  DEEPGRAM_API_KEY: z.string().optional().default(''),
-  ELEVEN_LABS_API_KEY: z.string().optional().default(''),
-  ELEVEN_LABS_VOICE_ID: z.string().optional().default(''),
+  //OPENAI_API_KEY: z.string().optional().default(""),
+  //DEEPGRAM_API_KEY: z.string().optional().default(""),
+  //ELEVEN_LABS_API_KEY: z.string().optional().default(""),
+  //ELEVEN_LABS_VOICE_ID: z.string().optional().default(""),
 });
 
 type ParsedEnv = z.infer<typeof parsedEnvValidator>;
